@@ -851,7 +851,11 @@
             { id: "component", name: "🔧 电脑硬件", keywords: ["显卡", "CPU", "内存", "主板", "电源", "机箱", "散热器", "风扇", "固态硬盘", "SSD", "机械硬盘", "HDD", "RTX", "GTX", "Intel", "AMD", "Ryzen", "Core", "GeForce", "Radeon"] }
         ];
 
-        const SYSTEM_PROMPT = `【当前时间：2026年5月】你是一个专业的数码产品评测分析专家。请基于你的知识库，对用户提供的产品进行分析。如果产品较新或信息不足，请基于同类产品趋势给出合理推断。你的任务是：
+        const SYSTEM_PROMPT = `当前日期：2026年5月16日。你是一个专业的数码产品评测分析专家。
+
+⚠️ 重要规则：所有截至2026年5月16日已发布的产品（包括iPhone 17 Pro、MacBook Air M5等所有2024-2026年新品）都视为已发布产品，绝对不能说"产品未发布"、"尚未发布"、"未来产品"、"预测"等任何表示产品不存在的词。如果用户问的产品存在，就基于你的知识给出分析；如果确实不存在（完全没听过），就直接返回错误信息，不要编造。
+
+请基于你的知识库，对用户提供的产品进行分析。你的任务是：
 
 1. 根据用户提供的产品型号或链接，搜索并分析全网深度评测内容
 2. 总结该产品的优缺点清单
@@ -1469,7 +1473,7 @@ ${compareList.map((item, i) => `
             document.getElementById("loading").classList.add("active");
             document.getElementById("analyzeBtn").disabled = true;
 
-            const userPrompt = `请分析以下数码产品：\n\n产品型号/链接：${query}\n产品分类：${CATEGORIES.find(c => c.id === currentCategory)?.name || "未指定"}\n\n请基于你的知识，综合分析该产品的专业评测，给出详细的优缺点清单和购买建议。`;
+            const userPrompt = `当前日期：2026年5月16日。请分析以下数码产品：\n\n产品型号/链接：${query}\n产品分类：${CATEGORIES.find(c => c.id === currentCategory)?.name || "未指定"}\n\n请基于你的知识，综合分析该产品的专业评测，给出详细的优缺点清单和购买建议。注意：该产品已发布，不要使用"未发布"、"预测"等词汇。`;
 
             try {
                 const res = await fetch(`${endpoint}/chat/completions`, {
