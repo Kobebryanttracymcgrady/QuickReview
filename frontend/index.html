@@ -381,69 +381,66 @@
         }
         .verdict p { color: var(--text-secondary); line-height: 1.8; font-size: 0.95rem; }
 
-        .video-section {
+        .price-compare {
             background: var(--card);
             border: 1px solid var(--border);
             border-radius: 16px;
             padding: 24px;
             margin-bottom: 24px;
         }
-        .video-section h3 {
+        .price-compare h3 {
             font-size: 1.1rem;
             color: var(--primary-light);
-            margin-bottom: 18px;
+            margin-bottom: 16px;
             font-weight: 600;
             display: flex;
             align-items: center;
             gap: 10px;
         }
-        .video-list { display: flex; flex-direction: column; gap: 12px; }
-        .video-card {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-            padding: 14px 18px;
-            background: var(--bg-secondary);
-            border: 1px solid var(--border);
+        .price-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        @media (max-width: 640px) { .price-grid { grid-template-columns: 1fr; } }
+        .price-card {
+            padding: 16px;
             border-radius: 12px;
+            border: 1px solid var(--border);
+            background: var(--bg-secondary);
             text-decoration: none;
             transition: all 0.2s;
+            display: block;
         }
-        .video-card:hover { border-color: var(--primary); background: var(--primary-glow); transform: translateX(4px); }
-        .video-play-icon {
-            width: 40px; height: 40px;
-            border-radius: 10px;
-            background: var(--primary);
+        .price-card:hover { transform: translateY(-2px); border-color: var(--primary); }
+        .price-card .store {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            flex-shrink: 0;
+            gap: 6px;
         }
-        .video-info { flex: 1; min-width: 0; }
-        .video-title {
+        .price-card .store.jd { color: #e1251b; }
+        .price-card .store.taobao { color: #ff5000; }
+        .price-card .store.pdd { color: #e02e24; }
+        .price-card .amount {
+            font-size: 1.5rem;
+            font-weight: 700;
             color: var(--text);
-            font-weight: 500;
-            font-size: 0.95rem;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
         }
-        .video-meta {
-            display: flex;
-            gap: 12px;
-            margin-top: 4px;
+        .price-card .amount .unit {
+            font-size: 0.9rem;
+            color: var(--text-muted);
+            font-weight: 400;
+        }
+        .price-card .pname {
             font-size: 0.8rem;
             color: var(--text-muted);
+            margin-top: 6px;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
         }
-        .video-platform {
-            padding: 2px 8px;
-            border-radius: 4px;
-            font-weight: 500;
-        }
-        .video-platform.bilibili { background: rgba(0,161,214,0.15); color: #00a1d6; }
-        .video-platform.youtube { background: rgba(255,0,0,0.15); color: #ff4444; }
-        .video-arrow { color: var(--text-muted); font-size: 1.2rem; flex-shrink: 0; }
+        .price-loading { text-align: center; padding: 20px; color: var(--text-muted); font-size: 0.9rem; }
+        .price-error { text-align: center; padding: 12px; color: var(--text-muted); font-size: 0.85rem; }
         
         .error-msg {
             background: var(--danger-glow);
@@ -777,7 +774,10 @@
             <div class="result-header" id="resultHeader"></div>
             <div class="pros-cons" id="prosCons"></div>
             <div class="scenarios" id="scenarios"></div>
-            <div class="video-section" id="videoSection" style="display:none;"></div>
+            <div class="price-compare" id="priceCompare">
+                <h3>💰 实时行情</h3>
+                <div id="priceGrid" class="price-grid"></div>
+            </div>
             <div class="verdict" id="verdict"></div>
             <div class="add-compare-btn-wrapper">
                 <button class="compare-btn" id="addToCompareBtn" onclick="addToCompare()">
@@ -818,6 +818,7 @@
     <script>
         const DEFAULT_ENDPOINT = "https://api.siliconflow.cn/v1";
         const DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct";
+        const DEFAULT_BACKEND = window.location.origin || "http://localhost:8000";
         const MODEL_OPTIONS = [
             { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B（推荐）" },
             { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
@@ -860,7 +861,6 @@
 1. 根据用户提供的产品型号或链接，搜索并分析全网深度评测内容
 2. 总结该产品的优缺点清单
 3. 针对不同使用场景给出具体的购买建议
-4. 提供3-5个播放量较高的深度评测视频URL（优先B站和YouTube）
 
 请严格按照以下 JSON 格式返回结果，不要输出任何其他内容：
 
@@ -868,14 +868,6 @@
   "product_name": "产品完整名称",
   "price_range": "当前京东/淘宝最低价区间（如：5999-6999元，必须写当前真实市场价格）",
   "summary": "一句话总结",
-  "videos": [
-    {
-      "title": "视频标题",
-      "url": "视频URL（请使用B站、YouTube等平台的真实可访问链接）",
-      "platform": "平台名称（如B站、YouTube）",
-      "views": "播放量（如：50万播放）"
-    }
-  ],
   "pros": [
     {"title": "优点标题", "detail": "详细说明"}
   ],
@@ -1442,6 +1434,49 @@ ${compareList.map((item, i) => `
             }
         }
 
+        async function fetchPrices(query, productName) {
+            const pricesEl = document.getElementById("priceGrid");
+            pricesEl.innerHTML = '<div class="price-loading">正在查询电商实时价格...</div>';
+
+            try {
+                const res = await fetch(`${DEFAULT_BACKEND}/api/prices?product=${encodeURIComponent(productName || query)}`);
+                const data = await res.json();
+
+                if (!res.ok) throw new Error(data.detail || "查询失败");
+
+                let html = "";
+
+                // JD
+                if (data.jd && data.jd.length > 0) {
+                    html += data.jd.map(item => `
+                        <a href="${escapeHtml(item.url)}" target="_blank" class="price-card" rel="noopener">
+                            <div class="store jd">🛒 京东</div>
+                            <div class="amount">¥${escapeHtml(item.price)} <span class="unit">起</span></div>
+                            <div class="pname">${escapeHtml(item.name)}</div>
+                        </a>
+                    `).join("");
+                }
+
+                // Taobao
+                if (data.taobao && data.taobao.length > 0) {
+                    html += data.taobao.map(item => `
+                        <a href="${escapeHtml(item.url)}" target="_blank" class="price-card" rel="noopener">
+                            <div class="store taobao">🛍️ 淘宝</div>
+                            <div class="amount">¥${escapeHtml(item.price)} <span class="unit">起</span></div>
+                            <div class="pname">${escapeHtml(item.name)}</div>
+                        </a>
+                    `).join("");
+                }
+
+                if (!html) {
+                    html = '<div class="price-error">暂无实时价格数据，请点击上方按钮自行查询</div>';
+                }
+                pricesEl.innerHTML = html;
+            } catch (e) {
+                pricesEl.innerHTML = `<div class="price-error">实时价格查询暂不可用：${escapeHtml(e.message)}</div>`;
+            }
+        }
+
         function showError(msg) {
             const el = document.getElementById("errorMsg");
             el.textContent = msg;
@@ -1519,6 +1554,8 @@ ${compareList.map((item, i) => `
                     renderResult({ raw: content });
                 }
                 addHistory(query);
+                // Fetch real-time prices from e-commerce platforms
+                fetchPrices(query, d.product_name);
             } catch (e) {
                 showError(e.message);
             } finally {
@@ -1596,31 +1633,6 @@ ${compareList.map((item, i) => `
             document.getElementById("scenarios").innerHTML = `
                 <h3>🎯 场景化购买建议</h3>
                 ${scenarioHtml || "<p style='color:var(--text-muted)'>暂无</p>"}`;
-
-            const videos = d.videos || [];
-            const videoSection = document.getElementById("videoSection");
-            if (videos.length > 0) {
-                videoSection.style.display = "block";
-                videoSection.innerHTML = `
-                    <h3>🎬 深度评测视频</h3>
-                    <div class="video-list">
-                        ${videos.map(v => `
-                            <a href="${escapeHtml(v.url)}" target="_blank" class="video-card" rel="noopener">
-                                <div class="video-play-icon">▶</div>
-                                <div class="video-info">
-                                    <div class="video-title">${escapeHtml(v.title)}</div>
-                                    <div class="video-meta">
-                                        <span class="video-platform ${(v.platform||'').toLowerCase() === 'bilibili' || (v.platform||'').includes('b站') ? 'bilibili' : (v.platform||'').toLowerCase() === 'youtube' ? 'youtube' : ''}">${escapeHtml(v.platform||'视频')}</span>
-                                        ${v.views ? `<span>${escapeHtml(v.views)}</span>` : ''}
-                                    </div>
-                                </div>
-                                <span class="video-arrow">→</span>
-                            </a>
-                        `).join("")}
-                    </div>`;
-            } else {
-                videoSection.style.display = "none";
-            }
 
             document.getElementById("verdict").innerHTML = `
                 <h3>📋 最终建议</h3>
