@@ -4,8 +4,11 @@ import httpx
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
+
+print("=== QuickReview App Starting ===")
 
 load_dotenv()
 
@@ -134,6 +137,86 @@ async def analyze_product(req: AnalyzeRequest):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/api/prices")
+async def get_prices(product: str):
+    """Scrape JD and Taobao for current product prices"""
+    from urllib.parse import quote as url_quote
+    import re
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+
+    result = {"jd": [], "taobao": [], "pdd": []}
+
+    # Scrape JD
+    try:
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            url = f"https://search.jd.com/Search?keyword={url_quote(product)}&enc=utf-8"
+            resp = await client.get(url, headers=headers)
+            if resp.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(resp.text, "lxml")
+                for item in soup.select("li.gl-item")[:6]:
+                    name_el = item.select_one(".p-name a")
+                    price_el = item.select_one(".p-price strong")
+                    if name_el and price_el:
+                        href = name_el.get("href", "")
+                        if href.startswith("//"):
+                            href = "https:" + href
+                        result["jd"].append({
+                            "name": name_el.get_text(strip=True)[:80],
+                            "price": price_el.get_text(strip=True),
+                            "url": href,
+                        })
+    except Exception as e:
+        print(f"JD scrape error: {e}")
+
+    # Scrape Taobao (best effort)
+    try:
+        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
+            url = f"https://s.taobao.com/search?q={url_quote(product)}"
+            resp = await client.get(url, headers={
+                **headers,
+                "Cookie": "lgc=1; thw=cn",
+                "Referer": "https://www.taobao.com/",
+            })
+            if resp.status_code == 200:
+                from bs4 import BeautifulSoup
+                soup = BeautifulSoup(resp.text, "lxml")
+                for item in soup.select("[data-index]"):
+                    price_el = item.select_one(".price")
+                    name_el = item.select_one(".title a")
+                    link_el = item.select_one("a[href*='item.taobao.com']")
+                    if price_el and name_el:
+                        result["taobao"].append({
+                            "name": name_el.get_text(strip=True)[:80],
+                            "price": price_el.get_text(strip=True).split()[0] if price_el.get_text(strip=True) else "",
+                            "url": "https:" + link_el.get("href", "") if link_el else "",
+                        })
+    except Exception as e:
+        print(f"Taobao scrape error: {e}")
+
+    return result
+
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the frontend index.html on the root path"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "index.html")
+    if os.path.exists(frontend_path):
+        with open(frontend_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    
+    # Fallback if frontend is not found (e.g. deployed in a different structure)
+    return HTMLResponse(
+        content="<h1>QuickReview API is running.</h1><p>Frontend files not found. Please deploy frontend separately or check file structure.</p>",
+        status_code=200
+    )
 
 
 if __name__ == "__main__":
