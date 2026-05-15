@@ -786,7 +786,7 @@
             { id: "component", name: "🔧 电脑硬件", keywords: ["显卡", "CPU", "内存", "主板", "电源", "机箱", "散热器", "风扇", "固态硬盘", "SSD", "机械硬盘", "HDD", "RTX", "GTX", "Intel", "AMD", "Ryzen", "Core", "GeForce", "Radeon"] }
         ];
 
-        const SYSTEM_PROMPT = `【当前时间：2026年5月】请务必使用联网搜索功能获取该产品的最新全网评测信息。你是一个专业的数码产品评测分析专家。你的任务是：
+        const SYSTEM_PROMPT = `【当前时间：2026年5月】你是一个专业的数码产品评测分析专家。请基于你的知识库，对用户提供的产品进行分析。如果产品较新或信息不足，请基于同类产品趋势给出合理推断。你的任务是：
 
 1. 根据用户提供的产品型号或链接，搜索并分析全网深度评测内容
 2. 总结该产品的优缺点清单
@@ -1339,8 +1339,7 @@ ${compareList.map((item, i) => `
                         model: model,
                         messages: [{ role: "user", content: comparePrompt }],
                         temperature: 0.7,
-                        max_tokens: 4096,
-                        enable_search: true
+                        max_tokens: 4096
                     })
                 });
 
@@ -1384,7 +1383,7 @@ ${compareList.map((item, i) => `
             document.getElementById("loading").classList.add("active");
             document.getElementById("analyzeBtn").disabled = true;
 
-            const userPrompt = `请分析以下数码产品：\n\n产品型号/链接：${query}\n产品分类：${CATEGORIES.find(c => c.id === currentCategory)?.name || "未指定"}\n\n请搜索该产品的专业评测（包括视频评测、文章评测等），综合分析后给出详细的优缺点清单和购买建议。`;
+            const userPrompt = `请分析以下数码产品：\n\n产品型号/链接：${query}\n产品分类：${CATEGORIES.find(c => c.id === currentCategory)?.name || "未指定"}\n\n请基于你的知识，综合分析该产品的专业评测，给出详细的优缺点清单和购买建议。`;
 
             try {
                 const res = await fetch(`${endpoint}/chat/completions`, {
@@ -1401,8 +1400,7 @@ ${compareList.map((item, i) => `
                         ],
                         temperature: 0.7,
                         top_p: 0.95,
-                        max_tokens: 4096,
-                        enable_search: true
+                        max_tokens: 4096
                     })
                 });
 
