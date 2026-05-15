@@ -584,7 +584,7 @@
             box-shadow: 0 20px 60px rgba(0,0,0,0.5);
         }
         .modal h3 { margin-bottom: 18px; font-weight: 600; font-size: 1.1rem; }
-        .modal input, .modal select {
+        .modal input, .modal select, .modal input[list] {
             width: 100%;
             padding: 12px 16px;
             background: var(--bg-secondary);
@@ -596,7 +596,7 @@
             outline: none;
             transition: all 0.2s;
         }
-        .modal input:focus, .modal select:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
+        .modal input:focus, .modal select:focus, .modal input[list]:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-glow); }
         .modal p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 18px; line-height: 1.6; }
         .modal-btns { display: flex; gap: 12px; justify-content: flex-end; flex-wrap: wrap; }
         .modal-btns button {
@@ -797,7 +797,8 @@
             <p>填入你的硅基流动 API Key（仅保存在本地浏览器，不会上传到任何服务器）</p>
             
             <label style="color:var(--text-muted); font-size:0.85rem; margin-bottom:4px; display:block;">AI 模型</label>
-            <select id="modelSelect"></select>
+            <input type="text" id="modelInput" list="modelSuggestions" placeholder="输入或选择模型，如：deepseek-ai/DeepSeek-V3">
+            <datalist id="modelSuggestions"></datalist>
             
             <label style="color:var(--text-muted); font-size:0.85rem; margin-bottom:4px; display:block;">API 端点</label>
             <select id="endpointSelect">
@@ -818,13 +819,15 @@
     <script>
         const DEFAULT_ENDPOINT = "https://api.siliconflow.cn/v1";
         const DEFAULT_MODEL = "Qwen/Qwen2.5-72B-Instruct";
-        const DEFAULT_BACKEND = window.location.origin || "http://localhost:8000";
-        const MODEL_OPTIONS = [
-            { id: "Qwen/Qwen2.5-72B-Instruct", name: "Qwen 2.5 72B（推荐）" },
-            { id: "deepseek-ai/DeepSeek-V3", name: "DeepSeek V3" },
-            { id: "01-ai/Yi-1.5-34B-Chat", name: "Yi 1.5 34B" },
-            { id: "moonshotai/Kimi-K2.5", name: "Kimi K2.5（需权限）" },
-            { id: "moonshotai/Kimi-K2.6", name: "Kimi K2.6（需权限）" }
+        const POPULAR_MODELS = [
+            "Qwen/Qwen2.5-72B-Instruct",
+            "deepseek-ai/DeepSeek-V3",
+            "01-ai/Yi-1.5-34B-Chat",
+            "Qwen/Qwen2.5-32B-Instruct",
+            "THUDM/glm-4-9b-chat",
+            "internlm/internlm2_5-7b-chat",
+            "google/gemma-2-9b-it",
+            "meta-llama/Meta-Llama-3.1-8B-Instruct"
         ];
 
         const MAX_HISTORY = 20;
@@ -1202,14 +1205,15 @@
             document.getElementById("settingsModal").classList.add("active");
             document.getElementById("apiKeyInput").value = localStorage.getItem("apiKey") || "";
             document.getElementById("endpointSelect").value = getEndpoint();
+            document.getElementById("modelInput").value = getModel();
             document.getElementById("testResult").className = "test-result";
             document.getElementById("testResult").textContent = "";
             
-            const modelSelect = document.getElementById("modelSelect");
-            const savedModel = localStorage.getItem("model") || DEFAULT_MODEL;
-            modelSelect.innerHTML = MODEL_OPTIONS.map(m => 
-                `<option value="${m.id}" ${m.id === savedModel ? "selected" : ""}>${m.name}</option>`
-            ).join("");
+            // 填充模型建议列表：热门免费模型 + 历史记录
+            const savedModels = JSON.parse(localStorage.getItem("modelHistory") || "[]");
+            const allModels = [...new Set([...savedModels, ...POPULAR_MODELS])];
+            const datalist = document.getElementById("modelSuggestions");
+            datalist.innerHTML = allModels.map(m => `<option value="${m}">`).join("");
         }
 
         function closeSettings() {
@@ -1219,11 +1223,15 @@
         function saveApiKey() {
             const key = document.getElementById("apiKeyInput").value.trim();
             const endpoint = document.getElementById("endpointSelect").value;
-            const model = document.getElementById("modelSelect").value;
+            const model = document.getElementById("modelInput").value.trim() || DEFAULT_MODEL;
             if (key) localStorage.setItem("apiKey", key);
             else localStorage.removeItem("apiKey");
             localStorage.setItem("endpoint", endpoint);
             localStorage.setItem("model", model);
+            // 保存模型到历史记录
+            let history = JSON.parse(localStorage.getItem("modelHistory") || "[]");
+            history = [model, ...history.filter(m => m !== model)].slice(0, 10);
+            localStorage.setItem("modelHistory", JSON.stringify(history));
             updateApiStatus();
             closeSettings();
         }
@@ -1231,7 +1239,7 @@
         async function testApi() {
             const apiKey = document.getElementById("apiKeyInput").value.trim();
             const endpoint = document.getElementById("endpointSelect").value;
-            const model = document.getElementById("modelSelect").value;
+            const model = document.getElementById("modelInput").value.trim() || DEFAULT_MODEL;
             const resultEl = document.getElementById("testResult");
             
             if (!apiKey) {
