@@ -866,7 +866,7 @@
 
 {
   "product_name": "产品完整名称",
-  "price_range": "价格区间",
+  "price_range": "当前京东/淘宝最低价区间（如：5999-6999元，必须写当前真实市场价格）",
   "summary": "一句话总结",
   "videos": [
     {
@@ -1544,7 +1544,23 @@ ${compareList.map((item, i) => `
             document.getElementById("resultHeader").innerHTML = `
                 <h2>${escapeHtml(d.product_name || "未知产品")}</h2>
                 <div class="price">${escapeHtml(d.price_range || "")}</div>
-                <div class="summary">${escapeHtml(d.summary || "")}</div>`;
+                <div class="summary">${escapeHtml(d.summary || "")}</div>
+                <div style="display:flex; gap:10px; margin-top:16px; flex-wrap:wrap;">
+                    <a href="https://search.jd.com/Search?keyword=${encodeURIComponent(d.product_name || '')}" 
+                       target="_blank" rel="noopener"
+                       style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px; 
+                              background:rgba(225,37,27,0.1); border:1px solid rgba(225,37,27,0.3); 
+                              border-radius:8px; color:#ff8a80; text-decoration:none; font-size:0.85rem; font-weight:500;">
+                       🛒 京东查价
+                    </a>
+                    <a href="https://s.taobao.com/search?q=${encodeURIComponent(d.product_name || '')}" 
+                       target="_blank" rel="noopener"
+                       style="display:inline-flex; align-items:center; gap:6px; padding:8px 16px; 
+                              background:rgba(255,80,0,0.1); border:1px solid rgba(255,80,0,0.3); 
+                              border-radius:8px; color:#ffab91; text-decoration:none; font-size:0.85rem; font-weight:500;">
+                       🛍️ 淘宝查价
+                    </a>
+                </div>`;
 
             const prosHtml = (d.pros || []).map(p => `
                 <div class="item">
