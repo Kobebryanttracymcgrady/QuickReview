@@ -141,65 +141,82 @@ async def health():
 
 @app.get("/api/prices")
 async def get_prices(product: str):
-    """Scrape JD and Taobao for current product prices"""
+    """Scrape e-commerce platforms for current product prices"""
     from urllib.parse import quote as url_quote
     import re
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
-    }
+    result = {"jd": [], "taobao": []}
 
-    result = {"jd": [], "taobao": [], "pdd": []}
-
-    # Scrape JD
+    # Scrape JD with mobile-friendly headers
     try:
-        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
-            url = f"https://search.jd.com/Search?keyword={url_quote(product)}&enc=utf-8"
-            resp = await client.get(url, headers=headers)
-            if resp.status_code == 200:
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            url = f"https://search.jd.com/Search?keyword={url_quote(product)}&enc=utf-8&wq={url_quote(product)}&pvid=1&sc_ext=1"
+            resp = await client.get(url, headers={
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+                "Referer": "https://www.jd.com/",
+                "Cookie": "ipLoc-djd=1-72-2799-0; areaId=1; __jduid=1; PCSysCity=1",
+            })
+            if resp.status_code == 200 and len(resp.text) > 1000:
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(resp.text, "lxml")
                 for item in soup.select("li.gl-item")[:6]:
                     name_el = item.select_one(".p-name a")
-                    price_el = item.select_one(".p-price strong")
+                    price_el = item.select_one(".p-price strong, .p-price i")
                     if name_el and price_el:
                         href = name_el.get("href", "")
                         if href.startswith("//"):
                             href = "https:" + href
+                        elif href.startswith("/"):
+                            href = "https://item.jd.com" + href
+                        name_text = re.sub(r'\s+', ' ', name_el.get_text(strip=True))[:80]
+                        price_text = price_el.get_text(strip=True).replace('\n', '').replace(' ', '')
                         result["jd"].append({
-                            "name": name_el.get_text(strip=True)[:80],
-                            "price": price_el.get_text(strip=True),
+                            "name": name_text,
+                            "price": price_text,
                             "url": href,
                         })
     except Exception as e:
         print(f"JD scrape error: {e}")
 
-    # Scrape Taobao (best effort)
+    # Scrape Taobao
     try:
-        async with httpx.AsyncClient(timeout=12.0, follow_redirects=True) as client:
-            url = f"https://s.taobao.com/search?q={url_quote(product)}"
+        async with httpx.AsyncClient(timeout=15.0, follow_redirects=True) as client:
+            url = f"https://s.taobao.com/search?q={url_quote(product)}&s=0"
             resp = await client.get(url, headers={
-                **headers,
-                "Cookie": "lgc=1; thw=cn",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
                 "Referer": "https://www.taobao.com/",
+                "Cookie": "t=; ctoken=; _tb_token_=; lgc=1; thw=cn",
             })
-            if resp.status_code == 200:
+            if resp.status_code == 200 and len(resp.text) > 1000:
                 from bs4 import BeautifulSoup
                 soup = BeautifulSoup(resp.text, "lxml")
-                for item in soup.select("[data-index]"):
-                    price_el = item.select_one(".price")
-                    name_el = item.select_one(".title a")
-                    link_el = item.select_one("a[href*='item.taobao.com']")
+                for item in soup.select(".items .item, div[data-index]")[:6]:
+                    price_el = item.select_one(".price, .price g_price, .J_Price")
+                    name_el = item.select_one(".title a, .J_ClickStat")
                     if price_el and name_el:
+                        price_text = price_el.get_text(strip=True).replace('\n', '').replace(' ', '')
+                        name_text = re.sub(r'\s+', ' ', name_el.get_text(strip=True))[:80]
+                        link = name_el.get("href", "")
+                        if link.startswith("//"):
+                            link = "https:" + link
                         result["taobao"].append({
-                            "name": name_el.get_text(strip=True)[:80],
-                            "price": price_el.get_text(strip=True).split()[0] if price_el.get_text(strip=True) else "",
-                            "url": "https:" + link_el.get("href", "") if link_el else "",
+                            "name": name_text,
+                            "price": price_text,
+                            "url": link,
                         })
     except Exception as e:
         print(f"Taobao scrape error: {e}")
+
+    # If both failed, return search links for manual lookup
+    if not result["jd"] and not result["taobao"]:
+        return {
+            "jd": [{"name": "在京东查看实时价格", "price": "点击查询", "url": f"https://search.jd.com/Search?keyword={url_quote(product)}&enc=utf-8"}],
+            "taobao": [{"name": "在淘宝查看实时价格", "price": "点击查询", "url": f"https://s.taobao.com/search?q={url_quote(product)}"}],
+        }
 
     return result
 

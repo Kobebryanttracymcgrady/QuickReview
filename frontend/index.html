@@ -1502,6 +1502,11 @@ ${compareList.map((item, i) => `
                 showError("请输入产品型号或链接");
                 return;
             }
+            // 检查是否是图片输入（当前模型不支持图片识别）
+            if (/\.(png|jpg|jpeg|gif|bmp|webp|svg)(\?|$)/i.test(query)) {
+                showError("当前 AI 模型不支持图片识别，请输入产品型号名称");
+                return;
+            }
 
             hideError();
             document.getElementById("resultSection").classList.remove("active");
