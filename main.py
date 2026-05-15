@@ -8,6 +8,8 @@ from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
+print("=== QuickReview App Starting ===")
+
 load_dotenv()
 
 app = FastAPI(title="QuickReview AI", description="数码产品评测分析助手")
