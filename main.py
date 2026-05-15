@@ -4,6 +4,7 @@ import httpx
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -134,6 +135,21 @@ async def analyze_product(req: AnalyzeRequest):
 @app.get("/api/health")
 async def health():
     return {"status": "ok"}
+
+
+@app.get("/")
+async def serve_frontend():
+    """Serve the frontend index.html on the root path"""
+    frontend_path = os.path.join(os.path.dirname(__file__), "frontend", "index.html")
+    if os.path.exists(frontend_path):
+        with open(frontend_path, "r", encoding="utf-8") as f:
+            return HTMLResponse(content=f.read())
+    
+    # Fallback if frontend is not found (e.g. deployed in a different structure)
+    return HTMLResponse(
+        content="<h1>QuickReview API is running.</h1><p>Frontend files not found. Please deploy frontend separately or check file structure.</p>",
+        status_code=200
+    )
 
 
 if __name__ == "__main__":
