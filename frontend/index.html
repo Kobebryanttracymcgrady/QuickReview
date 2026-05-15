@@ -1560,7 +1560,7 @@ ${compareList.map((item, i) => `
                 }
                 addHistory(query);
                 // Fetch real-time prices from e-commerce platforms
-                fetchPrices(query, d.product_name);
+                fetchPrices(query, currentResult?.product_name);
             } catch (e) {
                 showError(e.message);
             } finally {
