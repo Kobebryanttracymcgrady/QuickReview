@@ -4,7 +4,8 @@ import httpx
 from typing import Optional
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from dotenv import load_dotenv
 
@@ -13,6 +14,9 @@ print("=== QuickReview App Starting ===")
 load_dotenv()
 
 app = FastAPI(title="QuickReview AI", description="数码产品评测分析助手")
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="frontend"), name="static")
 
 app.add_middleware(
     CORSMiddleware,
@@ -234,6 +238,21 @@ async def serve_frontend():
         content="<h1>QuickReview API is running.</h1><p>Frontend files not found. Please deploy frontend separately or check file structure.</p>",
         status_code=200
     )
+
+
+@app.get("/{filename}.txt")
+async def serve_txt_file(filename: str):
+    """Serve any .txt file from the project root or frontend directory"""
+    # Check project root first
+    file_path = os.path.join(os.path.dirname(__file__), f"{filename}.txt")
+    if not os.path.exists(file_path):
+        # Check frontend directory
+        file_path = os.path.join(os.path.dirname(__file__), "frontend", f"{filename}.txt")
+    
+    if os.path.exists(file_path):
+        return FileResponse(file_path, media_type="text/plain")
+    
+    raise HTTPException(status_code=404, detail=f"File {filename}.txt not found")
 
 
 if __name__ == "__main__":
